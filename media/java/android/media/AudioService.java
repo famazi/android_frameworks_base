@@ -281,6 +281,8 @@ public class AudioService extends IAudioService.Stub {
             "STREAM_TTS"
     };
 
+    private boolean mLinkNotificationWithVolume;
+
     private final AudioSystem.ErrorCallback mAudioSystemCallback = new AudioSystem.ErrorCallback() {
         public void onError(int error) {
             switch (error) {
@@ -641,6 +643,13 @@ public class AudioService extends IAudioService.Stub {
             mRingerModeAffectedStreams |= (1 << AudioSystem.STREAM_DTMF);
         }
         mStreamVolumeAlias[AudioSystem.STREAM_DTMF] = dtmfStreamAlias;
+
+        if (mLinkNotificationWithVolume) {
+            mStreamVolumeAlias[AudioSystem.STREAM_NOTIFICATION] = AudioSystem.STREAM_RING;
+        } else {
+            mStreamVolumeAlias[AudioSystem.STREAM_NOTIFICATION] = AudioSystem.STREAM_NOTIFICATION;
+        }
+
         if (updateVolumes) {
             mStreamStates[AudioSystem.STREAM_DTMF].setAllIndexes(mStreamStates[dtmfStreamAlias]);
             // apply stream mute states according to new value of mRingerModeAffectedStreams
@@ -714,6 +723,9 @@ public class AudioService extends IAudioService.Stub {
             updateRingerModeAffectedStreams();
             readDockAudioSettings(cr);
         }
+
+        mLinkNotificationWithVolume = Settings.System.getIntForUser(cr,
+                Settings.System.VOLUME_LINK_NOTIFICATION, 1, UserHandle.USER_CURRENT) == 1;
 
         mMuteAffectedStreams = System.getIntForUser(cr,
                 System.MUTE_STREAMS_AFFECTED,
@@ -2562,9 +2574,8 @@ public class AudioService extends IAudioService.Stub {
                  (1 << AudioSystem.STREAM_SYSTEM)|(1 << AudioSystem.STREAM_SYSTEM_ENFORCED)),
                  UserHandle.USER_CURRENT);
 
-        // ringtone, notification and system streams are always affected by ringer mode
+        // ringtone and system streams are always affected by ringer mode
         ringerModeAffectedStreams |= (1 << AudioSystem.STREAM_RING)|
-                                        (1 << AudioSystem.STREAM_NOTIFICATION)|
                                         (1 << AudioSystem.STREAM_SYSTEM);
 
         if (mVoiceCapable) {
@@ -2913,12 +2924,10 @@ public class AudioService extends IAudioService.Stub {
             int index;
             if (isMuted()) {
                 index = 0;
-            } else if (mStreamVolumeAlias[mStreamType] == AudioSystem.STREAM_MUSIC &&
-                       (device & AudioSystem.DEVICE_OUT_ALL_A2DP) != 0 &&
+            } else if ((device & AudioSystem.DEVICE_OUT_ALL_A2DP) != 0 &&
                        mAvrcpAbsVolSupported) {
                 index = (mIndexMax + 5)/10;
-            }
-            else {
+            } else {
                 index = (getIndex(device) + 5)/10;
             }
             AudioSystem.setStreamVolumeIndex(mStreamType, index, device);
@@ -2943,6 +2952,9 @@ public class AudioService extends IAudioService.Stub {
                 if (device != AudioSystem.DEVICE_OUT_DEFAULT) {
                     if (isMuted()) {
                         index = 0;
+                    } else if ((device & AudioSystem.DEVICE_OUT_ALL_A2DP) != 0 &&
+                            mAvrcpAbsVolSupported) {
+                        index = (mIndexMax + 5)/10;
                     } else {
                         index = ((Integer)entry.getValue() + 5)/10;
                     }
@@ -3215,7 +3227,14 @@ public class AudioService extends IAudioService.Stub {
             for (int streamType = numStreamTypes - 1; streamType >= 0; streamType--) {
                 if (streamType != streamState.mStreamType &&
                         mStreamVolumeAlias[streamType] == streamState.mStreamType) {
-                    mStreamStates[streamType].applyDeviceVolume(getDeviceForStream(streamType));
+                    // Make sure volume is also maxed out on A2DP device for aliased stream
+                    // that may have a different device selected
+                    int streamDevice = getDeviceForStream(streamType);
+                    if ((device != streamDevice) && mAvrcpAbsVolSupported &&
+                            ((device & AudioSystem.DEVICE_OUT_ALL_A2DP) != 0)) {
+                        mStreamStates[streamType].applyDeviceVolume(device);
+                    }
+                    mStreamStates[streamType].applyDeviceVolume(streamDevice);
                 }
             }
 
@@ -3701,6 +3720,8 @@ public class AudioService extends IAudioService.Stub {
                 Settings.System.MODE_RINGER_STREAMS_AFFECTED), false, this);
             mContentResolver.registerContentObserver(Settings.Global.getUriFor(
                 Settings.Global.DOCK_AUDIO_MEDIA_ENABLED), false, this);
+            mContentResolver.registerContentObserver(Settings.System.getUriFor(
+                Settings.System.VOLUME_LINK_NOTIFICATION), false, this);
         }
 
         @Override
@@ -3719,6 +3740,14 @@ public class AudioService extends IAudioService.Stub {
                     setRingerModeInt(getRingerMode(), false);
                 }
                 readDockAudioSettings(mContentResolver);
+
+                mLinkNotificationWithVolume = Settings.System.getIntForUser(mContentResolver,
+                        Settings.System.VOLUME_LINK_NOTIFICATION, 1, UserHandle.USER_CURRENT) == 1;
+                if (mLinkNotificationWithVolume) {
+                    mStreamVolumeAlias[AudioSystem.STREAM_NOTIFICATION] = AudioSystem.STREAM_RING;
+                } else {
+                    mStreamVolumeAlias[AudioSystem.STREAM_NOTIFICATION] = AudioSystem.STREAM_NOTIFICATION;
+                }
             }
         }
     }
@@ -3843,9 +3872,12 @@ public class AudioService extends IAudioService.Stub {
         // address is not used for now, but may be used when multiple a2dp devices are supported
         synchronized (mA2dpAvrcpLock) {
             mAvrcpAbsVolSupported = support;
-            VolumeStreamState streamState = mStreamStates[AudioSystem.STREAM_MUSIC];
             sendMsg(mAudioHandler, MSG_SET_DEVICE_VOLUME, SENDMSG_QUEUE,
-                    AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, 0, streamState, 0);
+                    AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, 0,
+                    mStreamStates[AudioSystem.STREAM_MUSIC], 0);
+            sendMsg(mAudioHandler, MSG_SET_DEVICE_VOLUME, SENDMSG_QUEUE,
+                    AudioSystem.DEVICE_OUT_BLUETOOTH_A2DP, 0,
+                    mStreamStates[AudioSystem.STREAM_RING], 0);
         }
     }
 

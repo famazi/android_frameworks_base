@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2013 ParanoidAndroid Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,6 +156,26 @@ interface ITelephony {
     boolean supplyPuk(String puk, String pin);
 
     /**
+     * Supply a pin to unlock the SIM.  Blocks until a result is determined.
+     * Returns a specific success/error code.
+     * @param pin The pin to check.
+     * @return retValue[0] = Phone.PIN_RESULT_SUCCESS on success. Otherwise error code
+     *         retValue[1] = number of attempts remaining if known otherwise -1
+     */
+    int[] supplyPinReportResult(String pin);
+
+    /**
+     * Supply puk to unlock the SIM and set SIM pin to new pin.
+     * Blocks until a result is determined.
+     * Returns a specific success/error code
+     * @param puk The puk to check
+     *        pin The pin to check.
+     * @return retValue[0] = Phone.PIN_RESULT_SUCCESS on success. Otherwise error code
+     *         retValue[1] = number of attempts remaining if known otherwise -1
+     */
+    int[] supplyPukReportResult(String puk, String pin);
+
+    /**
      * Handles PIN MMI commands (PIN/PIN2/PUK/PUK2), which are initiated
      * without SEND (so <code>dial</code> is not appropriate).
      *
@@ -162,6 +183,20 @@ interface ITelephony {
      * @return true if MMI command is executed.
      */
     boolean handlePinMmi(String dialString);
+
+    /**
+     * Toggle between 3G and LTE (NT_MODE_CDMA, NT_MODE_GLOBAL)
+     * @param boolean to turn on and off LTE
+     * {@hide}
+     */
+        void toggleLTE(boolean on);
+
+    /**
+     * Toggle between 3G and 2G
+     * @param networkState {RILConstants.NETWORK_MODE}
+     * {@hide}
+     */
+        void toggleMobileNetwork(int networkState);
 
     /**
      * Toggles the radio on or off.
@@ -279,6 +314,8 @@ interface ITelephony {
       * Returns the network type for voice
       */
     int getVoiceNetworkType();
+
+    int getLteOnGsmMode();
 
     /**
      * Return true if an ICC card is present

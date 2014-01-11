@@ -642,6 +642,12 @@ public class MediaFocusControl implements OnFinished {
             return AudioManager.AUDIOFOCUS_REQUEST_FAILED;
         }
 
+        AudioManager am = (AudioManager)mContext.getSystemService(Context.AUDIO_SERVICE);
+        if (am.getStreamVolume(AudioManager.STREAM_NOTIFICATION) == 0
+                && mainStreamType == AudioManager.STREAM_NOTIFICATION) {
+            return AudioManager.AUDIOFOCUS_REQUEST_FAILED;
+        }
+
         synchronized(mAudioFocusLock) {
             if (!canReassignAudioFocus()) {
                 return AudioManager.AUDIOFOCUS_REQUEST_FAILED;
@@ -1476,16 +1482,17 @@ public class MediaFocusControl implements OnFinished {
      * Set the new remote control receiver at the top of the RC focus stack.
      * Called synchronized on mAudioFocusLock, then mRCStack
      * precondition: mediaIntent != null
+     * @return true if mRCStack was changed, false otherwise
      */
-    private void pushMediaButtonReceiver_syncAfRcs(PendingIntent mediaIntent, ComponentName target,
-            IBinder token) {
+    private boolean pushMediaButtonReceiver_syncAfRcs(PendingIntent mediaIntent,
+            ComponentName target, IBinder token) {
         // already at top of stack?
         if (!mRCStack.empty() && mRCStack.peek().mMediaIntent.equals(mediaIntent)) {
-            return;
+            return false;
         }
         if (mAppOps.noteOp(AppOpsManager.OP_TAKE_MEDIA_BUTTONS, Binder.getCallingUid(),
                 mediaIntent.getCreatorPackage()) != AppOpsManager.MODE_ALLOWED) {
-            return;
+            return false;
         }
         RemoteControlStackEntry rcse = null;
         boolean wasInsideStack = false;
@@ -1513,6 +1520,9 @@ public class MediaFocusControl implements OnFinished {
             mEventHandler.sendMessage( mEventHandler.obtainMessage(
                     MSG_PERSIST_MEDIABUTTONRECEIVER, 0, 0, target/*obj*/) );
         }
+
+        // RC stack was modified
+        return true;
     }
 
     /**
@@ -1856,9 +1866,10 @@ public class MediaFocusControl implements OnFinished {
 
         synchronized(mAudioFocusLock) {
             synchronized(mRCStack) {
-                pushMediaButtonReceiver_syncAfRcs(mediaIntent, eventReceiver, token);
-                // new RC client, assume every type of information shall be queried
-                checkUpdateRemoteControlDisplay_syncAfRcs(RC_INFO_ALL);
+                if (pushMediaButtonReceiver_syncAfRcs(mediaIntent, eventReceiver, token)) {
+                    // new RC client, assume every type of information shall be queried
+                    checkUpdateRemoteControlDisplay_syncAfRcs(RC_INFO_ALL);
+                }
             }
         }
     }
