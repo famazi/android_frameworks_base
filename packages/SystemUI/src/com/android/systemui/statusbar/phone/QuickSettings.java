@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 The Android Open Source Project
- * This code has been modified. Portions copyright (C) 2013, ParanoidAndroid Project.
+ * This code has been modified. Portions copyright (C) 2013-2014 ParanoidAndroid Project.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,7 +109,6 @@ class QuickSettings {
         BLUETOOTH,
         LOCATION,
         IMMERSIVE,
-        LTE,
         MOBILENETWORK,
         LIGHTBULB,
         SLEEP
@@ -135,8 +134,8 @@ class QuickSettings {
         + DELIMITER + Tile.ROTATION + DELIMITER + Tile.BATTERY + DELIMITER
         + Tile.BLUETOOTH + DELIMITER + Tile.LOCATION;
         + DELIMITER + Tile.ROTATION + DELIMITER + Tile.BATTERY + DELIMITER + Tile.BLUETOOTH
-        + DELIMITER + Tile.LOCATION + DELIMITER + Tile.IMMERSIVE + DELIMITER + Tile.LTE
-        + DELIMITER + Tile.MOBILENETWORK + DELIMITER + Tile.LIGHTBULB;
+        + DELIMITER + Tile.LOCATION + DELIMITER + Tile.IMMERSIVE + DELIMITER + Tile.MOBILENETWORK
+        + DELIMITER + Tile.LIGHTBULB;
 
     private Context mContext;
     private PanelBar mBar;
@@ -177,7 +176,7 @@ class QuickSettings {
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         mWifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
         mConnectivityManager =
-                    (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+                   (ConnectivityManager) mContext.getSystemService(Context.CONNECTIVITY_SERVICE);
 
         mHandler = new Handler();
 
@@ -366,58 +365,6 @@ class QuickSettings {
     private boolean immersiveEnabled() {
         return Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.IMMERSIVE_MODE, 0) == 1;
-    }
-
-    private void toggleLteState() {
-        TelephonyManager tm = (TelephonyManager)
-            mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        int network = mModel.getCurrentPreferredNetworkMode(mContext);
-        switch(network) {
-            case com.android.internal.telephony.Phone.NT_MODE_GLOBAL:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_CDMA_AND_EVDO:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_GSM_WCDMA:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_CMDA_EVDO_GSM_WCDMA:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_ONLY:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_WCDMA:
-                tm.toggleLTE(false);
-                break;
-            default:
-                tm.toggleLTE(true);
-                break;
-        }
-    }
-
-    private void toggleMobileNetworkState() {
-        TelephonyManager tm = (TelephonyManager)
-            mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        int network = mModel.getCurrentPreferredNetworkMode(mContext);
-        switch(network) {
-            // 2G3G
-            case com.android.internal.telephony.Phone.NT_MODE_WCDMA_PREF:
-            case com.android.internal.telephony.Phone.NT_MODE_GSM_UMTS:
-                tm.toggleMobileNetwork(com.android.internal.telephony
-                                            .Phone.NT_MODE_GSM_ONLY);//2G Only
-                break;
-            // 2G Only
-            case com.android.internal.telephony.Phone.NT_MODE_GSM_ONLY:
-                tm.toggleMobileNetwork(com.android.internal.telephony
-                                            .Phone.NT_MODE_WCDMA_ONLY);//3G Only
-                break;
-            // 3G Only
-            case com.android.internal.telephony.Phone.NT_MODE_WCDMA_ONLY:
-                tm.toggleMobileNetwork(com.android.internal.telephony
-                                            .Phone.NT_MODE_WCDMA_PREF);//2G3G
-                break;
-            case com.android.internal.telephony.Phone.NT_MODE_GLOBAL:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_CDMA_AND_EVDO:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_GSM_WCDMA:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_CMDA_EVDO_GSM_WCDMA:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_ONLY:
-            case com.android.internal.telephony.Phone.NT_MODE_LTE_WCDMA:
-                tm.toggleLTE(false); // turn off LTE
-                tm.toggleMobileNetwork(com.android.internal.telephony
-                                            .Phone.NT_MODE_WCDMA_PREF);//2G3G
-        }
     }
 
     private void addTiles(ViewGroup parent, LayoutInflater inflater, boolean addMissing) {
@@ -1109,44 +1056,6 @@ class QuickSettings {
                     });
                     parent.addView(immersiveTile);
                     if(addMissing) immersiveTile.setVisibility(View.GONE);
-                } else if (Tile.LTE.toString().equals(tile.toString())) { // LTE
-                    final QuickSettingsBasicTile lteTile
-                            = new QuickSettingsBasicTile(mContext);
-                    lteTile.setTileId(Tile.LTE);
-                    lteTile.setImageResource(R.drawable.ic_qs_lte_on);
-                    lteTile.setTextResource(R.string.quick_settings_lte);
-                    lteTile.setOnClickListener(new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            toggleLteState();
-                        }
-                    });
-
-                    lteTile.setOnLongClickListener(new View.OnLongClickListener() {
-                        @Override
-                        public boolean onLongClick(View v) {
-                            Intent intent = new Intent(Intent.ACTION_MAIN);
-                            intent.setClassName("com.android.phone", "com.android.phone.Settings");
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startSettingsActivity(intent);
-                            return true;
-                        }
-                    });
-
-                    mModel.addLteTile(lteTile, new QuickSettingsModel.RefreshCallback() {
-                        @Override
-                        public void refreshView(QuickSettingsTileView unused, State lteState) {
-                            lteTile.setTextResource(lteState.enabled ?
-                                                        R.string.quick_settings_lte :
-                                                        R.string.quick_settings_lte_off);
-                            lteTile.setImageResource(lteState.enabled ?
-                                                        R.drawable.ic_qs_lte_on :
-                                                        R.drawable.ic_qs_lte_off);
-                        }
-                    });
-
-                    parent.addView(lteTile);
-                    if(addMissing) lteTile.setVisibility(View.GONE);
                 } else if (Tile.MOBILENETWORK.toString().equals(tile.toString())) { // MobileNetwork
                     if (mModel.deviceHasMobileData()) {
                         final QuickSettingsBasicTile mobileNetworkTile
@@ -1157,7 +1066,7 @@ class QuickSettings {
                         mobileNetworkTile.setOnClickListener(new View.OnClickListener() {
                             @Override
                             public void onClick(View v) {
-                                toggleMobileNetworkState();
+                                mModel.toggleMobileNetworkState();
                             }
                         });
 
@@ -1175,25 +1084,8 @@ class QuickSettings {
                         mModel.addMobileNetworkTile(mobileNetworkTile, new QuickSettingsModel.RefreshCallback() {
                             @Override
                             public void refreshView(QuickSettingsTileView unused, State mobileNetworkState) {
-                                if (mModel.mLteState.enabled) {
-                                    mobileNetworkTile.setTextResource(R.string.quick_settings_network_unknown);
-                                    mobileNetworkTile.setImageResource(R.drawable.ic_qs_unexpected_network);
-                                } else {
-                                    mobileNetworkTile.setTextResource(R.string.quick_settings_network_type);
-                                    int network = mModel.getCurrentPreferredNetworkMode(mContext);
-                                    switch(network) {
-                                        case com.android.internal.telephony.Phone.NT_MODE_WCDMA_PREF:
-                                        case com.android.internal.telephony.Phone.NT_MODE_GSM_UMTS:
-                                            mobileNetworkTile.setImageResource(R.drawable.ic_qs_2g3g_on);
-                                            break;
-                                        case com.android.internal.telephony.Phone.NT_MODE_GSM_ONLY:
-                                            mobileNetworkTile.setImageResource(R.drawable.ic_qs_2g_on);
-                                            break;
-                                        case com.android.internal.telephony.Phone.NT_MODE_WCDMA_ONLY:
-                                            mobileNetworkTile.setImageResource(R.drawable.ic_qs_3g_on);
-                                            break;
-                                    }
-                                }
+                                mobileNetworkTile.setImageResource(mobileNetworkState.iconId);
+                                mobileNetworkTile.setText(mobileNetworkState.label);
                             }
                         });
 
@@ -1293,6 +1185,35 @@ class QuickSettings {
             }
         });
         parent.addView(alarmTile);
+
+        // Usb Mode
+        final QuickSettingsBasicTile usbModeTile
+                = new QuickSettingsBasicTile(mContext);
+        usbModeTile.setTemporary(true);
+        usbModeTile.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (mConnectivityManager.getTetherableWifiRegexs().length != 0) {
+                    Intent intent = new Intent();
+                    intent.setComponent(new ComponentName(
+                            "com.android.settings",
+                            "com.android.settings.Settings$TetherSettingsActivity"));
+                    startSettingsActivity(intent);
+                }
+                return true;
+            }
+        });
+
+        mModel.addUsbModeTile(usbModeTile, new QuickSettingsModel.RefreshCallback() {
+            @Override
+            public void refreshView(QuickSettingsTileView unused, State usbState) {
+                usbModeTile.setImageResource(usbState.iconId);
+                usbModeTile.setText(usbState.label);
+                usbModeTile.setVisibility(usbState.enabled ? View.VISIBLE : View.GONE);
+            }
+        });
+
+        parent.addView(usbModeTile);
 
         // Remote Display
         QuickSettingsBasicTile remoteDisplayTile
