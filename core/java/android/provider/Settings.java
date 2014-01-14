@@ -2530,6 +2530,8 @@ public final class Settings {
         public static final String VOLUME_WAKE_SCREEN = "volume_wake_screen";
 
         /**
+<<<<<<< HEAD
+=======
          * Immersive mode global actions switch
          * 0 = no
          * 1 = yes
@@ -2538,12 +2540,15 @@ public final class Settings {
         public static final String IMMERSIVE_MODE = "immersive_mode";
 
         /**
+>>>>>>> upstream/kitkat
          * Quick settings tiles to show on status bar
          * @hide
          */
         public static final String QUICK_SETTINGS_TILES = "quick_settings_tiles";
 
         /**
+<<<<<<< HEAD
+=======
 
          * Setting to show the battery percentage text
          * @hide
@@ -2551,6 +2556,7 @@ public final class Settings {
         public static final String STATUS_BAR_BATTERY_STYLE = "status_bar_battery_style";
 
         /**
+>>>>>>> upstream/kitkat
          * Settings to backup. This is here so that it's in the same place as the settings
          * keys and easy to update.
          *

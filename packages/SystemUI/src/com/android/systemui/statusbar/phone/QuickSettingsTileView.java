@@ -57,7 +57,6 @@ class QuickSettingsTileView extends FrameLayout {
     private boolean mPrepared;
     private OnPrepareListener mOnPrepareListener;
 
-
     private boolean mTemporary;
     private boolean mEditMode;
     private boolean mVisible;
@@ -219,6 +218,7 @@ class QuickSettingsTileView extends FrameLayout {
         }
         super.setVisibility(vis);
     }
+}
 
     public void setOnPrepareListener(OnPrepareListener listener) {
         if (mOnPrepareListener != listener) {
